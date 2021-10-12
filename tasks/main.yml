@@ -45,7 +45,7 @@
     state: present
     definition: "{{ lookup('file', 'local-volume.yaml') }}"
   register: local_volume_success
-  retries: 20
+  retries: 100
   delay: 30
   until: local_volume_success is not failed
 
