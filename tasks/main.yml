@@ -1,9 +1,9 @@
 ---
 # vim: set ft=ansible:
 
-- name: Get RHCOS version to use
+- name: Get OCP version to use
   set_fact:
-    ocp4_aio_subversion: "{{ ocp4_aio_ocp_version.split('`ocp4_aio_ocp_workers-')[1] if ('`ocp4_aio_ocp_workers' in ocp4_aio_ocp_version) else ocp4_aio_ocp_version.split('.')[:2]|join('.') }}"
+    ocp4_aio_subversion: "{{ ocp4_aio_ocp_version.split('latest-')[1] if ('latest' in ocp4_aio_ocp_version) else ocp4_aio_ocp_version.split('.')[:2]|join('.') }}"
 
 - name: Label nodes for OpenShift Storage when compact
   ansible.builtin.command: >
