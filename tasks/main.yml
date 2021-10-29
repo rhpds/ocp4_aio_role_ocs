@@ -84,7 +84,7 @@
   ansible.builtin.command: >
     oc patch OCSInitialization ocsinit -n openshift-storage
     --type json --patch '[{ "op": "replace", "path": "/spec/enableCephTools", "value": true }]'
-  register:	ceph_tools_success
+  register: ceph_tools_success
   retries: 20
   delay: 30
   until: ceph_tools_success is not failed
