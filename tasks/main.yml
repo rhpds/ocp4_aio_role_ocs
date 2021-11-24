@@ -112,7 +112,7 @@
 
 - name: Wait for image registry to stabilise on OCS
   pause:
-    minutes: 2
+    minutes: 3
 
 - name: Enable Ceph Tools pod for troubleshooting
   ansible.builtin.command: >
