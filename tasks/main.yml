@@ -3,7 +3,7 @@
 
 - name: Get OCP version to use
   set_fact:
-    ocp4_aio_subversion: "{{ ocp4_aio_ocp_version.split('latest-')[1] if ('latest' in ocp4_aio_ocp_version) else ocp4_aio_ocp_version.split('.')[:2]|join('.') }}"
+    ocp4_aio_subversion: "{{ ocp4_aio_ocp_version.split('latest-')[1] if ('latest' in ocp4_aio_ocp_version) else {{ ocp4_aio_ocp_version.split('stable-')[1] if ('stable' in ocp4_aio_ocp_version) else {{ ocp4_aio_ocp_version.split('candidate-')[1] if ('candidate' in ocp4_aio_ocp_version) else ocp4_aio_ocp_version.split('.')[:2]|join('.') }}"
 
 - name: Label nodes for OpenShift Storage when compact
   ansible.builtin.command: >
