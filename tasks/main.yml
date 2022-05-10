@@ -61,6 +61,17 @@
   retries: 20
   delay: 30
   until: ocs_operator_success is not failed
+  when: ocp4_aio_subversion is version('4.9', operator='lt', strict=True)
+
+- name: Apply odf-operator configuration
+  k8s:
+    state: present
+    definition: "{{ lookup('file', 'odf-operator.yaml') }}"
+  register: ocs_operator_success
+  retries: 20
+  delay: 30
+  until: ocs_operator_success is not failed
+  when: ocp4_aio_subversion is version('4.9', operator='ge', strict=True)
 
 - name: Apply storage-cluster configuration
   k8s:
@@ -70,6 +81,27 @@
   retries: 20
   delay: 30
   until: storage_cluster_success is not failed
+  when: not ocp4_aio_nanodf
+
+- name: Apply Extra config for rook for ODF Nano
+  k8s:
+    state: present
+    definition: "{{ lookup('file', 'nanodf-config.yaml') }}"
+  register: nanodf_config_success
+  retries: 20
+  delay: 30
+  until: nanodf_config_success is not failed
+  when: ocp4_aio_nanodf
+
+- name: Apply storage-cluster configuration for ODF Nano
+  k8s:
+    state: present
+    definition: "{{ lookup('file', 'storage-cluster-nano.yaml') }}"
+  register: storage_cluster_success
+  retries: 20
+  delay: 30
+  until: storage_cluster_success is not failed
+  when: ocp4_aio_nanodf
 
 - name: Unset default storage class for nfs
   ansible.builtin.command: >
