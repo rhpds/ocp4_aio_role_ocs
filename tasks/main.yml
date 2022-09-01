@@ -81,7 +81,20 @@
   retries: 20
   delay: 30
   until: storage_cluster_success is not failed
-  when: not ocp4_aio_nanodf
+  when: not ocp4_aio_nanodf and not ocp4_aio_odflite
+
+- name: Apply lightweight storage-cluster configuration
+  k8s:
+    state: present
+    definition: "{{ lookup('file', 'storage-cluster-lite.yaml') }}"
+  register: storage_cluster_success
+  retries: 20
+  delay: 30
+  until: storage_cluster_success is not failed
+  when: 
+    - not ocp4_aio_nanodf 
+    - ocp4_aio_odflite
+
 
 - name: Apply Extra config for rook for ODF Nano
   k8s:
