@@ -154,10 +154,12 @@
     namespace: openshift-image-registry
     name: image-registry-storage
     state: absent
+  when: ocp4_aio_deploy_nfs
 
 - name: Wait for image registry to stabilise on OCS
   pause:
     minutes: 3
+  when: ocp4_aio_deploy_nfs
 
 - name: Enable Ceph Tools pod for troubleshooting
   ansible.builtin.command: >
