@@ -148,9 +148,6 @@
   ansible.builtin.shell: >
     oc patch configs.imageregistry.operator.openshift.io cluster --type merge --patch '{"spec":{"storage":{"pvc": {"claim": "ocs-imgreg"}}}}'
 
-- name: Wait for image registry to stabilise on OCS
-  pause:
-    minutes: 3
 
 - name: Enable Ceph Tools pod for troubleshooting
   ansible.builtin.command: >
