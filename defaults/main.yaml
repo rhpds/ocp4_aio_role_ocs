@@ -1,2 +1,3 @@
 ocp4_aio_nanodf: False
 ocp4_aio_odflite: False
+odf_channel: stable-4.14
