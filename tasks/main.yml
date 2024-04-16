@@ -1,42 +1,40 @@
 ---
 # vim: set ft=ansible:
-
 - name: Get OCP version to use
-  set_fact:
-    ocp4_aio_subversion: "{{ ocp4_aio_ocp_version.split('latest-')[1] if ('latest' in ocp4_aio_ocp_version) else ocp4_aio_ocp_version.split('stable-')[1] if ('stable' in ocp4_aio_ocp_version) else ocp4_aio_ocp_version.split('candidate-')[1] if ('candidate' in ocp4_aio_ocp_version) else ocp4_aio_ocp_version.split('.')[:2]|join('.') }}"
+  ansible.builtin.set_fact:
+    ocp4_aio_subversion: "{{ ocp4_aio_ocp_version.split('latest-')[1] if ('latest' in ocp4_aio_ocp_version) else ocp4_aio_ocp_version.split('stable-')[1] if ('stable' in ocp4_aio_ocp_version) else ocp4_aio_ocp_version.split('candidate-')[1] if ('candidate' in ocp4_aio_ocp_version) else ocp4_aio_ocp_version.split('.')[:2] | join('.') }}"
 
 - name: Label nodes for OpenShift Storage when compact
+  when: ocp4_aio_deploy_compact or hostvars['localhost']['override_deploy_compact']
   ansible.builtin.command: >
     oc label nodes --overwrite ocp4-{{ item.key }}.aio.example.com cluster.ocs.openshift.io/openshift-storage=''
   with_dict: "{{ vms['masters'] }}"
-  when:
-    - ocp4_aio_deploy_compact or hostvars['localhost']['override_deploy_compact']
 
 - name: Label nodes for OpenShift Storage when not compact
+  when: not ocp4_aio_deploy_compact
   ansible.builtin.command: >
     oc label nodes --overwrite ocp4-{{ item.key }}.aio.example.com cluster.ocs.openshift.io/openshift-storage=''
   with_dict: "{{ vms['workers'] }}"
-  when:
-    - not ocp4_aio_deploy_compact
 
 - name: Copy over k8s-aio env requirements.txt
   ansible.builtin.copy:
     src: requirements.txt
     dest: /tmp/requirements.txt
+    mode: "0664"
 
 - name: "Create k8s-aio venv"
-  pip:
+  ansible.builtin.pip:
     requirements: "/tmp/requirements.txt"
     virtualenv: "/opt/virtualenvs/k8s-aio"
     virtualenv_site_packages: true
     virtualenv_command: "/usr/bin/virtualenv"
 
 - name: "Set Ansible interpreter to venv"
-  set_fact:
+  ansible.builtin.set_fact:
     ansible_python_interpreter: /opt/virtualenvs/k8s-aio/bin/python
 
 - name: Apply local-storage-operator configuration
-  k8s:
+  kubernetes.core.k8s:
     state: present
     definition: "{{ lookup('file', 'local-storage-operator.yaml') }}"
   register: local_storage_success
@@ -45,7 +43,7 @@
   until: local_storage_success is not failed
 
 - name: Apply local-volume configuration
-  k8s:
+  kubernetes.core.k8s:
     state: present
     definition: "{{ lookup('file', 'local-volume.yaml') }}"
   register: local_volume_success
@@ -53,70 +51,59 @@
   delay: 30
   until: local_volume_success is not failed
 
-- name: Apply ocs-operator configuration
-  k8s:
-    state: present
-    definition: "{{ lookup('file', 'ocs-operator.yaml') }}"
-  register: ocs_operator_success
-  retries: 20
-  delay: 30
-  until: ocs_operator_success is not failed
-  when: ocp4_aio_subversion is version('4.9', operator='lt', strict=True)
-
 - name: Apply odf-operator configuration
-  k8s:
+  kubernetes.core.k8s:
     state: present
     definition: "{{ lookup('template', 'odf-operator.yaml.j2') }}"
   register: ocs_operator_success
   retries: 20
   delay: 30
   until: ocs_operator_success is not failed
-  when: ocp4_aio_subversion is version('4.9', operator='ge', strict=True)
 
 - name: Apply storage-cluster configuration
-  k8s:
+  when: not ocp4_aio_nanodf and not ocp4_aio_odflite
+  kubernetes.core.k8s:
     state: present
     definition: "{{ lookup('file', 'storage-cluster.yaml') }}"
   register: storage_cluster_success
   retries: 20
   delay: 30
   until: storage_cluster_success is not failed
-  when: not ocp4_aio_nanodf and not ocp4_aio_odflite
 
 - name: Apply lightweight storage-cluster configuration
-  k8s:
+  when:
+  - not ocp4_aio_nanodf | bool
+  - ocp4_aio_odflite | bool
+  kubernetes.core.k8s:
     state: present
     definition: "{{ lookup('file', 'storage-cluster-lite.yaml') }}"
   register: storage_cluster_success
   retries: 20
   delay: 30
   until: storage_cluster_success is not failed
-  when: 
-    - not ocp4_aio_nanodf 
-    - ocp4_aio_odflite
-
 
 - name: Apply Extra config for rook for ODF Nano
-  k8s:
+  when: ocp4_aio_nanodf | bool
+  kubernetes.core.k8s:
     state: present
     definition: "{{ lookup('file', 'nanodf-config.yaml') }}"
   register: nanodf_config_success
   retries: 20
   delay: 30
   until: nanodf_config_success is not failed
-  when: ocp4_aio_nanodf
 
 - name: Apply storage-cluster configuration for ODF Nano
-  k8s:
+  when: ocp4_aio_nanodf | bool
+  kubernetes.core.k8s:
     state: present
     definition: "{{ lookup('file', 'storage-cluster-nano.yaml') }}"
   register: storage_cluster_success
   retries: 20
   delay: 30
   until: storage_cluster_success is not failed
-  when: ocp4_aio_nanodf
 
 - name: Unset default storage class for nfs
+  when: ocp4_aio_deploy_nfs | bool
   ansible.builtin.command: >
     oc patch storageclass nfs
     -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"false"}}}'
@@ -124,11 +111,10 @@
   retries: 1
   delay: 30
   until: default_nfsclass_success is not failed
-  when: ocp4_aio_deploy_nfs
 
 - name: Set default storage class to be ocs-storagecluster-ceph-rbd
   ansible.builtin.command: >
-    oc patch storageclass ocs-storagecluster-ceph-rbd 
+    oc patch storageclass ocs-storagecluster-ceph-rbd
     -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
   register: default_class_success
   retries: 30
@@ -136,9 +122,9 @@
   until: default_class_success is not failed
 
 - name: Create PVC for the Image Registry on OCS
-  k8s:
-      state: present
-      definition: "{{ lookup('file', 'ceph-imgreg-pvc.yaml') }}"
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('file', 'ceph-imgreg-pvc.yaml') }}"
   register: imgreg_volume_success
   retries: 5
   delay: 30
@@ -147,7 +133,6 @@
 - name: Enable OCS based PVC based storage for Image Registry
   ansible.builtin.shell: >
     oc patch configs.imageregistry.operator.openshift.io cluster --type merge --patch '{"spec":{"storage":{"pvc": {"claim": "ocs-imgreg"}}}}'
-
 
 - name: Enable Ceph Tools pod for troubleshooting
   ansible.builtin.command: >
